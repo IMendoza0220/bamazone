@@ -1,156 +1,147 @@
-var mysql = require("mysql");
-var inquirer = require("inquirer");
+// Pull in required dependencies
+var inquirer = require('inquirer');
+var mysql = require('mysql');
 
-// create the connection information for the sql database
+// Define the MySQL connection parameters
 var connection = mysql.createConnection({
-  host: "localhost",
+	host: 'localhost',
+	port: 3306,
 
-  // Your port; if not 3306
-  port: 3306,
+	// Your username
+	user: 'root',
 
-  // Your username
-  user: "root",
-
-  // Your password
-  password: "",
-  database: "greatBay_DB"
+	// Your password
+	password: 'tilapia123',
+	database: 'bamazon_db'
 });
 
-// connect to the mysql server and sql database
-connection.connect(function(err) {
-  if (err) throw err;
-  // run the start function after the connection is made to prompt the user
-  start();
-});
+// validateInput makes sure that the user is supplying only positive integers for their inputs
+function validateInput(value) {
+	var integer = Number.isInteger(parseFloat(value));
+	var sign = Math.sign(value);
 
-// function which prompts the user for what action they should take
-function start() {
-  inquirer
-    .prompt({
-      name: "postOrBid",
-      type: "list",
-      message: "Would you like to [POST] an auction or [BID] on an auction?",
-      choices: ["POST", "BID", "EXIT"]
-    })
-    .then(function(answer) {
-      // based on their answer, either call the bid or the post functions
-      if (answer.postOrBid === "POST") {
-        postAuction();
-      }
-      else if(answer.postOrBid === "BID") {
-        bidAuction();
-      } else{
-        connection.end();
-      }
-    });
+	if (integer && (sign === 1)) {
+		return true;
+	} else {
+		return 'Please enter a whole non-zero number.';
+	}
 }
 
-// function to handle posting new items up for auction
-function postAuction() {
-  // prompt for info about the item being put up for auction
-  inquirer
-    .prompt([
-      {
-        name: "item",
-        type: "input",
-        message: "What is the item you would like to submit?"
-      },
-      {
-        name: "category",
-        type: "input",
-        message: "What category would you like to place your auction in?"
-      },
-      {
-        name: "startingBid",
-        type: "input",
-        message: "What would you like your starting bid to be?",
-        validate: function(value) {
-          if (isNaN(value) === false) {
-            return true;
-          }
-          return false;
-        }
-      }
-    ])
-    .then(function(answer) {
-      // when finished prompting, insert a new item into the db with that info
-      connection.query(
-        "INSERT INTO auctions SET ?",
-        {
-          item_name: answer.item,
-          category: answer.category,
-          starting_bid: answer.startingBid || 0,
-          highest_bid: answer.startingBid || 0
-        },
-        function(err) {
-          if (err) throw err;
-          console.log("Your auction was created successfully!");
-          // re-prompt the user for if they want to bid or post
-          start();
-        }
-      );
-    });
+// promptUserPurchase will prompt the user for the item/quantity they would like to purchase
+function promptUserPurchase() {
+	// console.log('___ENTER promptUserPurchase___');
+
+	// Prompt the user to select an item
+	inquirer.prompt([
+		{
+			type: 'input',
+			name: 'item_id',
+			message: 'Please enter the Item ID which you would like to purchase.',
+			validate: validateInput,
+			filter: Number
+		},
+		{
+			type: 'input',
+			name: 'quantity',
+			message: 'How many do you need?',
+			validate: validateInput,
+			filter: Number
+		}
+	]).then(function(input) {
+		// console.log('Customer has selected: \n    item_id = '  + input.item_id + '\n    quantity = ' + input.quantity);
+
+		var item = input.item_id;
+		var quantity = input.quantity;
+
+		// Query db to confirm that the given item ID exists in the desired quantity
+		var queryStr = 'SELECT * FROM products WHERE ?';
+
+		connection.query(queryStr, {item_id: item}, function(err, data) {
+			if (err) throw err;
+
+			// If the user has selected an invalid item ID, data attay will be empty
+			// console.log('data = ' + JSON.stringify(data));
+
+			if (data.length === 0) {
+				console.log('ERROR: Invalid Item ID. Please select a valid Item ID.');
+				displayInventory();
+
+			} else {
+				var productData = data[0];
+
+				// console.log('productData = ' + JSON.stringify(productData));
+				// console.log('productData.stock_quantity = ' + productData.stock_quantity);
+
+				// If the quantity requested by the user is in stock
+				if (quantity <= productData.stock_quantity) {
+					console.log('Congratulations, the product you requested is in stock! Placing order!');
+
+					// Construct the updating query string
+					var updateQueryStr = 'UPDATE products SET stock_quantity = ' + (productData.stock_quantity - quantity) + ' WHERE item_id = ' + item;
+					// console.log('updateQueryStr = ' + updateQueryStr);
+
+					// Update the inventory
+					connection.query(updateQueryStr, function(err, data) {
+						if (err) throw err;
+
+						console.log('Your oder has been placed! Your total is $' + productData.price * quantity);
+						console.log('Thank you for shopping with us!');
+						console.log("\n---------------------------------------------------------------------\n");
+
+						// End the database connection
+						connection.end();
+					})
+				} else {
+					console.log('Sorry, there is not enough product in stock, your order can not be placed as is.');
+					console.log('Please modify your order.');
+					console.log("\n---------------------------------------------------------------------\n");
+
+					displayInventory();
+				}
+			}
+		})
+	})
 }
 
-function bidAuction() {
-  // query the database for all items being auctioned
-  connection.query("SELECT * FROM auctions", function(err, results) {
-    if (err) throw err;
-    // once you have the items, prompt the user for which they'd like to bid on
-    inquirer
-      .prompt([
-        {
-          name: "choice",
-          type: "rawlist",
-          choices: function() {
-            var choiceArray = [];
-            for (var i = 0; i < results.length; i++) {
-              choiceArray.push(results[i].item_name);
-            }
-            return choiceArray;
-          },
-          message: "What auction would you like to place a bid in?"
-        },
-        {
-          name: "bid",
-          type: "input",
-          message: "How much would you like to bid?"
-        }
-      ])
-      .then(function(answer) {
-        // get the information of the chosen item
-        var chosenItem;
-        for (var i = 0; i < results.length; i++) {
-          if (results[i].item_name === answer.choice) {
-            chosenItem = results[i];
-          }
-        }
+// displayInventory will retrieve the current inventory from the database and output it to the console
+function displayInventory() {
+	// console.log('___ENTER displayInventory___');
 
-        // determine if bid was high enough
-        if (chosenItem.highest_bid < parseInt(answer.bid)) {
-          // bid was high enough, so update db, let the user know, and start over
-          connection.query(
-            "UPDATE auctions SET ? WHERE ?",
-            [
-              {
-                highest_bid: answer.bid
-              },
-              {
-                id: chosenItem.id
-              }
-            ],
-            function(error) {
-              if (error) throw err;
-              console.log("Bid placed successfully!");
-              start();
-            }
-          );
-        }
-        else {
-          // bid wasn't high enough, so apologize and start over
-          console.log("Your bid was too low. Try again...");
-          start();
-        }
-      });
-  });
+	// Construct the db query string
+	queryStr = 'SELECT * FROM products';
+
+	// Make the db query
+	connection.query(queryStr, function(err, data) {
+		if (err) throw err;
+
+		console.log('Existing Inventory: ');
+		console.log('...................\n');
+
+		var strOut = '';
+		for (var i = 0; i < data.length; i++) {
+			strOut = '';
+			strOut += 'Item ID: ' + data[i].item_id + '  //  ';
+			strOut += 'Product Name: ' + data[i].product_name + '  //  ';
+			strOut += 'Department: ' + data[i].department_name + '  //  ';
+			strOut += 'Price: $' + data[i].price + '\n';
+
+			console.log(strOut);
+		}
+
+	  	console.log("---------------------------------------------------------------------\n");
+
+	  	//Prompt the user for item/quantity they would like to purchase
+	  	promptUserPurchase();
+	})
 }
+
+// runBamazon will execute the main application logic
+function runBamazon() {
+	// console.log('___ENTER runBamazon___');
+
+	// Display the available inventory
+	displayInventory();
+}
+
+// Run the application logic
+runBamazon();

@@ -11,3 +11,7 @@ CREATE TABLE products(
   quantity INT default 0,
   PRIMARY KEY (id)
 );
+
+USE bamazon_DB;
+INSERT INTO products(product_name,department_name,price,quantity)
+VALUES ("coffe maker","home", 45,3);
