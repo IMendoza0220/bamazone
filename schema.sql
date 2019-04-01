@@ -15,5 +15,10 @@ CREATE TABLE products(
 SELECT * FROM products;
 
 INSERT INTO products (product_name, department_name, price, stock_quantity)
-VALUES ("Uncharted 4", "Video Games", 49.95, 150),
-  ("Monopoly", "Board Games", 30.50, 35);
+VALUES ("Table ", "Furniture", 50, 3),
+("Mouse", "Electronics", 10, 10),
+("Desk ", "Furniture", 80, 5),
+("computer", "Electronics", 800, 30),
+("batteries", "Electronics", 12, 80),
+("Clock", "Electronics", 30, 10),
+  ("Couch", "Furniture", 150, 6);

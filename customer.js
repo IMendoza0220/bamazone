@@ -31,7 +31,7 @@ function promptCustomerForItem(inventory) {
       {
         type: "input",
         name: "choice",
-        message: "What is the ID of the item you would you like to purchase? [Quit with Q]",
+        message: "What is the ID of the item you would you like to purchase?",
         validate: function(val) {
           return !isNaN(val) || val.toLowerCase() === "q";
         }
@@ -45,7 +45,7 @@ function promptCustomerForItem(inventory) {
         promptCustomerForQuantity(product);
       }
       else {
-        console.log("\nThat item is not in the inventory.");
+        console.log("\n not in the inventory.");
         loadProducts();
       }
     });
@@ -57,7 +57,7 @@ function promptCustomerForQuantity(product) {
       {
         type: "input",
         name: "quantity",
-        message: "How many would you like? [Quit with Q]",
+        message: "How many would you like? ",
         validate: function(val) {
           return val > 0 || val.toLowerCase() === "q";
         }
