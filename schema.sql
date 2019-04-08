@@ -12,6 +12,8 @@ CREATE TABLE products(
   primary key(item_id)
 );
 
+
+USE bamazon;
 SELECT * FROM products;
 
 INSERT INTO products (product_name, department_name, price, stock_quantity)
