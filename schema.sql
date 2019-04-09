@@ -13,7 +13,7 @@ CREATE TABLE products(
 );
 
 
-USE bamazon;
+USE bamazon;git 
 SELECT * FROM products;
 
 INSERT INTO products (product_name, department_name, price, stock_quantity)
